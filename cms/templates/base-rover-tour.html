@@ -1,0 +1,793 @@
+## By:   Jim Van Riper
+##       Lawrence McDaniel
+##       lpm0073@gmail.com
+##       lawrencemcdaniel.com
+##
+## Usage:
+##         html, CSS and Javascript to generate Rover tours for AM.
+##
+##         The tour uses LinkedIn's hopscotch which is documented here.
+##         http://linkedin.github.io/hopscotch/
+##         https://github.com/linkedin/hopscotch
+##
+##         Note that there have been no commits to hopscotch since June 2017.
+##
+##
+##         shaded backdrop - this is four opaque-ish divs that are moved to surround and thereby
+##         highlight the tour target.  This can be handled with each hopscotch step's onShow
+##         callback.  Reference for HTML positioning which can be a pain.
+##         https://www.kirupa.com/html5/get_element_position_using_javascript.htm
+
+<%namespace name='static' file='static_content.html'/>
+<%
+  from cms.djangoapps.contentstore.views.course import _get_course_creator_status
+%>
+
+% if user.is_authenticated and _get_course_creator_status(user) == 'granted':
+<%
+site_domain = 'am.' + static.get_value('site_domain', settings.SITE_NAME)
+site_protocol = 'https' if settings.HTTPS == 'on' else 'http'
+
+sfdc_data_url=u"{protocol}://{domain}{path}".format(
+  protocol=site_protocol,
+  domain=site_domain,
+  path='/salesforce/v1/contacts/' + user.username
+)
+
+am_home=u"{protocol}://{domain}{path}".format(
+  protocol=site_protocol,
+  domain=site_domain,
+  path='/home/'
+)
+%>
+
+<!-- ROVERIZED TOUR -->
+<style>
+/* McDaniel: Jul-2019. Super Training image styling */
+.super-training-wheel {
+  width: 700px;
+}
+
+span.hopscotch-bubble-number {
+  display: none !important;
+}
+
+.hopscotch-bubble.animated.tour-cms-itinerary {
+  border: 2px solid rgb(244, 118, 65) !important;
+  border-radius: 10px;
+}
+
+
+
+div.hopscotch-bubble .hopscotch-bubble-arrow-container.up {
+  top: -18px;
+  left: 10px;
+}
+div.hopscotch-bubble .hopscotch-bubble-arrow-container.up .hopscotch-bubble-arrow {
+  border-bottom: 17px solid #ffffff;
+  border-left: 17px solid transparent;
+  border-right: 17px solid transparent;
+  position: relative;
+  top: -14px;
+}
+div.hopscotch-bubble .hopscotch-bubble-arrow-container.up .hopscotch-bubble-arrow-border {
+  border-bottom: 17px solid #000000;
+  border-bottom: 17px solid rgba(244, 118, 65, 1);
+  border-left: 17px solid transparent;
+  border-right: 17px solid transparent;
+}
+
+
+
+div.hopscotch-bubble .hopscotch-bubble-arrow-container.down {
+  bottom: -35px;
+  left: 10px;
+}
+div.hopscotch-bubble .hopscotch-bubble-arrow-container.down .hopscotch-bubble-arrow {
+  border-top: 17px solid #ffffff;
+  border-left: 17px solid transparent;
+  border-right: 17px solid transparent;
+  position: relative;
+  top: -20px;
+}
+div.hopscotch-bubble .hopscotch-bubble-arrow-container.down .hopscotch-bubble-arrow-border {
+  border-top: 17px solid #000000;
+  border-top: 17px solid rgba(244, 118, 65, 1);
+  border-left: 17px solid transparent;
+  border-right: 17px solid transparent;
+}
+
+
+
+div.hopscotch-bubble .hopscotch-bubble-arrow-container.left {
+  top: 10px;
+  left: -18px;
+}
+div.hopscotch-bubble .hopscotch-bubble-arrow-container.left .hopscotch-bubble-arrow {
+  border-bottom: 17px solid transparent;
+  border-right: 17px solid #ffffff;
+  border-top: 17px solid transparent;
+  position: relative;
+  left: 3px;
+  top: -34px;
+}
+div.hopscotch-bubble .hopscotch-bubble-arrow-container.left .hopscotch-bubble-arrow-border {
+  border-right: 17px solid #000000;
+  border-right: 17px solid rgba(244, 118, 65, 1);
+  border-bottom: 17px solid transparent;
+  border-top: 17px solid transparent;
+}
+
+
+
+div.hopscotch-bubble .hopscotch-bubble-arrow-container.right {
+  top: 10px;
+  right: -35px;
+}
+div.hopscotch-bubble .hopscotch-bubble-arrow-container.right .hopscotch-bubble-arrow {
+  border-bottom: 17px solid transparent;
+  border-left: 17px solid #ffffff;
+  border-top: 17px solid transparent;
+  position: relative;
+  left: -3px;
+  top: -34px;
+}
+div.hopscotch-bubble .hopscotch-bubble-arrow-container.right .hopscotch-bubble-arrow-border {
+  border-left: 17px solid #000000;
+  border-left: 17px solid rgba(244, 118, 65, 1);
+  border-bottom: 17px solid transparent;
+  border-top: 17px solid transparent;
+}
+
+
+button.hopscotch-nav-button.prev.hopscotch-prev {
+  background: initial;
+  color: white;
+  font-weight: initial;
+  text-shadow: initial;
+  background-color: #E5743D;
+  border: none;
+}
+button.hopscotch-nav-button.prev.hopscotch-prev:hover {
+  background: initial;
+  background-color: #076e7d;
+}
+
+button.hopscotch-nav-button.next.hopscotch-next {
+  background: initial;
+  color: white;
+  font-weight: initial;
+  text-shadow: initial;
+  background-color: #E5743D;
+  border: none;
+}
+
+button.hopscotch-nav-button.next.hopscotch-next:hover {
+  background: initial;
+  background-color: #076e7d;
+}
+
+/* McDaniel jul-2019: removing the original 50px left margin that was placed to accomodate the rover head. */
+div.hopscotch-bubble .hopscotch-bubble-content {
+  /* margin: 0 0 0 50px; */
+  margin: 0 0 0 0;
+}
+
+/*
+  McDaniel Jul-2019:
+  this puts a Rover dog headshot into the top-left corner of the Hopscotch tour content window.
+  Dani asked for this in 2018 but later wanted it removed, at least, from the super training wheels.
+
+.hopscotch-content::before {
+  content: url('data:image/png;base64,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');
+  position: absolute;
+  left: 0;
+}
+*/
+
+.adoption_modal_bkgd {
+  position: fixed;
+  top: 0px;
+  left: 0px;
+  bottom: 0px;
+  right: 0px;
+  z-index: 10000;
+  display:flex;
+  justify-content: center;
+  align-items: center;
+  background: rgba(0,0,0,0.75);
+}
+.adoption_modal, .adoption_count_modal {
+  width: 500px;
+  padding: 50px;
+  background: #e5e5e5;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.adoption_modal_bkgd button {
+  background: white;
+  border: 1px solid #999999;
+  font-size: 18px;
+  color: black;
+  font-weight: 500;
+  width: 100%;
+  height: 50px;
+  margin-bottom: 10px;
+}
+.adoption_modal_bkgd button:hover {
+  background: #ff7e3e;
+  color: white;
+  font-weight: 700;
+}
+.adoption_modal h2 {
+  font-size: 18px;
+  color: black;
+  font-weight: 500;
+  margin-bottom: 30px;
+}
+.adoption_count_modal h2 {
+  font-size: 18px;
+  color: black;
+  font-weight: 500;
+  margin-bottom: 30px;
+}
+.adoption_count_modal input {
+  font-size: 18px;
+  color: black;
+  font-weight: 500;
+  margin-bottom: 30px;
+  width: 100%
+}
+.adoption_count_modal button {
+  background: #ff7e3e;
+  color: white;
+  font-weight: 700;
+  border: 1px solid #999999;
+  font-size: 18px;
+  font-weight: 500;
+  width: 100px;
+  height: 40px;
+}
+</style>
+
+<script>
+  var roverTourItinerary;
+
+  /*
+    McDaniel Jul-2019
+    At Dani's request, added two super training wheel images to the front of the tour.
+   */
+  function cms_itinerary(){
+    superTrainingWheelImg1 = "${static.url('images/super-training-wheel-1.png')}";
+    superTrainingWheel1HTML = "<img class='super-training-wheel' src='" + superTrainingWheelImg1 + "' alt='Super Training Wheel 1'>";
+
+    superTrainingWheelImg3 = "${static.url('images/super-training-wheel-3.png')}";
+    superTrainingWheel3HTML = "<img class='super-training-wheel' src='" + superTrainingWheelImg3 + "' alt='Super Training Wheel 1'>";
+
+    roverTourItinerary = {
+      id: "cms-itinerary",
+      showCloseButton: (sessionStorage.getItem("hopscotch.tour.again") ? true : false),
+      showPrevButton: true,
+      onEnd: function(){
+        console.info('tada');
+        let rightNow = new Date()
+        $.ajax({
+          url: window.rover_mktg_url,
+          type: "PUT",
+          global: false,
+          data: { "completed_training_wheels_date": rightNow.toISOString() }
+        })
+        .done(function(data){
+          console.info("Recorded Tour Completion")
+        })
+        .fail( function(err){
+          console.info( "Tour Completion Recording Failed", err );
+        });
+
+      },
+      steps: [
+      {
+        content: superTrainingWheel1HTML,
+        target: document.querySelector('.cms-hdr'),
+        width: '750px',
+        xOffset: 'center',
+        placement: "bottom",
+        arrowWidth: 0,
+        onShow: function(){
+          document.querySelector(".hopscotch-bubble-arrow-container").style.display="none";
+        }
+      },
+      {
+        content: superTrainingWheel2HTML(),
+        target: document.querySelector('.cms-hdr'),
+        width: '800px',
+        xOffset: 'center',
+        placement: "bottom",
+        arrowWidth: 0,
+        onShow: function(){
+          document.querySelector(".hopscotch-bubble-arrow-container").style.display="none";
+        }
+      },
+      {
+        content: superTrainingWheel3HTML,
+        target: document.querySelector('.cms-hdr'),
+        width: '750px',
+        xOffset: 'center',
+        placement: "bottom",
+        arrowWidth: 0,
+        onShow: function(){
+          document.querySelector(".hopscotch-bubble-arrow-container").style.display="none";
+        }
+      },
+        {
+          content: "<p>Welcome to assignment manager! This is where you create course sections and student assignments.</p><p>This tour will teach you how to setup a course. Once we’re done, feel free to explore Rover on your own.</p>",
+          target: document.querySelector('.cms-hdr'),
+          xOffset: 'center',
+          placement: "bottom",
+          arrowWidth: 0,
+          onShow: function(){
+            document.querySelector(".hopscotch-bubble-arrow-container").style.display="none";
+          }
+        },
+        {
+          content: "Course sections you create will be listed here.",
+          target: document.querySelector('.my-course-sections-title'),
+          placement: "top",
+          yOffset: 50
+        },
+        {
+          content: "Click an OpenStax course template to create a new course section for that subject.",
+          target: document.querySelector('.course-link'),
+          placement: "bottom",
+          multipage: true,
+          nextOnTargetClick: true,
+          onNext: function(){
+            window.location = '/course_rerun/course-v1:OpenStax+OS94717210+Template';
+          }
+        },
+        {
+          content: "Let’s create a sample course section. And don’t worry about adding real information right now—Rover will use sample text for the tour.",
+          target: document.querySelector('.page-header-sub'),
+          placement: "right",
+          yOffset: 0,
+          showPrevButton: false,
+          onNext: function(){
+            console.info( 'Prepopulating course section data')
+            document.querySelector('#rerun-course-name').value="!Math 100: Rover Tour Course";
+            document.querySelector('#rerun-course-org').value="MySchool";
+
+            % if user.is_authenticated:
+              document.querySelector('#rerun-course-run').value="Fall2019_${user.last_name}_TTh700-750".replace(/\W/g, '');
+            % else:
+              document.querySelector('#rerun-course-run').value="";
+            % endif
+
+            document.querySelector('.rerun-course-save').classList.remove('is-disabled') ;
+          },
+          onShow: function(){
+            document.querySelector(".hopscotch-bubble-arrow-container").style.display="none";
+          }
+        },
+        {
+          content: "This is the course name that your students will see. We recommend a complete title such as 'Math 103 - Introduction to College Mathematics'",
+          target: "rerun-course-name",
+          placement: "bottom",
+          xOffset: 'center'
+        },
+        {
+          content: "Your school name goes here. Keep it short, but unique, e.g. 'DenverCC'.",
+          target: "rerun-course-org",
+          placement: "bottom",
+          xOffset: 'center'
+        },
+        {
+          content: "Create a unique <i>course section</i> name. We recommend 'Termyear_instructorname_coursetimes'.",
+          target: "rerun-course-run",
+          placement: "top",
+          xOffset: 'center'
+        },
+        {
+          content: "Click “create” to build your course section.",
+          target: document.querySelector('.rerun-course-save'),
+          placement: "right",
+          multipage: true,
+          nextOnTargetClick: true,
+          onNext: function(){
+            document.querySelector('.rerun-course-save').click();
+          }
+        },
+        {
+          content: "Please wait while your sample course is created.",
+          target: document.querySelector('.courses-processing'),
+          placement: "top",
+          xOffset: 'center',
+          showPrevButton: false,
+          showNextButton: false,
+          yOffset: 50
+        },
+        {
+          content: "Now, let’s look at the sample course you created.",
+          target: document.querySelector('.list-courses:not(.list-templates) > li.course-item > a.course-link'),
+          placement: "top",
+          xOffset: 'center',
+          yOffset: 50,
+          multipage: true,
+          nextOnTargetClick: true,
+          showPrevButton: false,
+          onNext: function(){
+            document.querySelector('.list-courses:not(.list-templates) > li.course-item > a.course-link').click();
+          }
+        },
+        {
+          content: "<p>Rover contains pre-built homework assignments aligned with the OpenStax book. Each section contains one assignment with all questions and instructors can delete questions so that homework assignments are manageable for the student.</p><p>For this trial, there are only two chapters shown and there are <i>two</i> assignments per section: the first assignment includes all available questions for that section for you to browse. The second assignment for each section is an example of a typical assignment that an instructor might make for that section.</p>",
+          target: document.querySelector('.page-header'),
+          placement: "bottom",
+          showPrevButton: false,
+          onShow: function(){
+            document.querySelector(".hopscotch-bubble-arrow-container").style.display="none";
+          }
+        },
+        {
+          content: "Click here to see the assignments as your students would see them. Remember: your students won’t see any changes you haven’t yet saved.",
+          target: document.querySelector('.view-live-button'),
+          placement: "left",
+          yOffset: -20
+        },
+        {
+          content: "Click on an arrow or chapter name to see assignments.",
+          target: document.querySelector('.section-header-details span.icon.fa.fa-caret-down'),
+          placement: "bottom"
+        },
+        {
+          content: "Use these icons to delete and re-order assignments and questions.",
+          target: document.querySelector('.action-duplicate'),
+          placement: "left",
+          yOffset: -20
+        },
+        {
+          content: "Click and drag here to re-order chapters, assignments, and questions.",
+          target: document.querySelector('.action-drag'),
+          placement: "left",
+          yOffset: -20
+        },
+        {
+          content: "<p>If a section is green, it’s available to students. If it’s orange, there are unpublished changes and students cannot see it.</p><p>You can set the date when the assignment is visible by clicking this calendar icon and setting the date and time.</p>",
+          target: document.querySelector('.outline-item-left'),
+          placement: "right",
+          onNext: function(){
+            setTimeout( function(){
+            console.info('showing Settings menu');
+            document.querySelector('li.nav-course-settings > .wrapper-nav-sub ').classList.add('is-shown');
+            }, 250);
+          }
+        },
+        {
+          content: "<p>Next, manage schedules, set grading policies, add teaching assistants, and other tasks through the Settings menu.</p><p>Let’s start with Schedule & Details.</p>",
+          target: document.querySelector('.nav-course-settings-schedule > a'),
+          placement: "left",
+          yOffset: -20,
+          multipage: true,
+          nextOnTargetClick: true,
+          onNext: function(){
+            document.querySelector('.nav-course-settings-schedule > a').click();
+          }
+        },
+        {
+          content: "This is the link your students need to access their course section. Click the icon to copy it.",
+          target: document.querySelector('p.course-enrollment-url'),
+          showPrevButton: false,
+          placement: "top"
+        },
+        {
+          content: "<p>Course dates and times are when your students can <i>access and complete</i> their homework. </p><p>You can set different access and complete dates per assignment on the Assignments page.</p>",
+          target: "field-course-end-time",
+          placement: "bottom"
+        },
+        {
+          content: "Enrollment dates and times are when your students can enroll in your course.",
+          target: "field-enrollment-start-time",
+          placement: "top",
+          onNext: function(){
+            setTimeout( function(){
+            console.info('showing Settings menu');
+            document.querySelector('li.nav-course-settings > .wrapper-nav-sub ').classList.add('is-shown');
+            }, 250);
+          }
+        },
+        {
+          content: "Next, set the grading policy through the Settings menu.",
+          target: document.querySelector('.nav-course-settings-grading > a'),
+          placement: "left",
+          multipage: true,
+          nextOnTargetClick: true,
+          yOffset: -20,
+          onNext: function(){
+            document.querySelector('.nav-course-settings-grading > a').click();
+          }
+        },
+        {
+          content: "<p>The grading default is two grades: pass or fail. Adjust the grade range by</p><ul style='margin-left:20px;'><li>Clicking the plus button to add grade ranges</li><li>Dragging the line between ranges to adjust the scale</li><li>Hovering over a letter to delete a range</li></ul>",
+          showPrevButton: false,
+          target: document.querySelector('.grade-slider'),
+          placement: "bottom"
+        },
+        {
+          content: "Add an optional grace period for all assignments in Hours:Minutes format.",
+          target: "field-course-grading-graceperiod",
+          placement: "right"
+        },
+        {
+          content: "IMPORTANT: Add the estimated number of assignments students will complete in this course section. Once you edit your assignments, you must return to this page and update this number.",
+          target: "field-course-grading-assignment-totalassignments",
+          placement: "right"
+        },
+        {
+          content: "<p>You’re done! Feel free to explore Rover on your own. Contact <a href='mailto:support@openstax.org'>support@openstax.org</a> if you have any questions.</p>",
+          target: document.querySelector(".nav-item.nav-course-courseware"),
+          placement: "bottom"
+        }
+      ]
+    };
+
+    return roverTourItinerary;
+  }
+
+  function ResumeRoverTour( currentStep ){
+
+    let numChecks = 0;
+    console.info( 'Resuming Tour at: ', currentStep );
+    const validateItineraryInterval = setInterval(
+      ()=> {
+        console.info( 'Resuming Tour at: ', currentStep );
+        cms_itinerary();
+        if( RoverItineraryValid(currentStep) ){
+          console.info( 'RoverItineraryValid so cleaning up' );
+          console.info(' header.html row 600 - tried to start tour')
+          hopscotch.startTour( roverTourItinerary, currentStep );
+          clearInterval( validateItineraryInterval );
+        }else if( numChecks>1000 ){
+          console.info( 'NOT RoverItineraryValid for ', ++numChecks );
+          clearInterval( validateItineraryInterval );
+        }else{
+          console.info( 'NOT RoverItineraryValid for ', ++numChecks );
+        }
+      },
+      100
+    );
+  }
+
+  // this function checks the targets in the range to ensure they arent null
+  function RoverItineraryValid( start ){
+    console.info( 'starting RoverItineraryValid' );
+    let steps = roverTourItinerary.steps;
+    let i=start;
+
+    // One step on this page
+    if( steps[i].target && steps[i].multipage ){
+      return true;
+    }
+
+    // Verify all targets on this page
+    do {
+      if( !steps[i].target ){
+        console.info( 'Bad target:', steps[i] );
+        return false;
+      }
+      i++;
+    } while ( i<steps.length && !steps[i].multipage )
+    return true;
+  }
+
+  /*
+    mcdaniel jul-2019
+    super training wheel #2 with embedded youtube video orientation
+  */
+  function superTrainingWheel2HTML() {
+    var html = `
+      <style>
+        a:hover,
+        a:active {
+          text-decoration: underline;
+        }
+      </style>
+      <div id="tour-youtube-video" style="margin: 15px 0 15px 0; text-align: center;">
+       <div id="tour-youtube-video-title">
+         <h1 style="font-weight: 700; ">Rover quickstart video</h1>
+       </div>
+       <div id="tour-youtube-video-subtitle" style="margin: inherit;">
+         <p>Watch out getting started video and learn how to use Rover</p>
+       </div>
+       <div id="tour-youtube-video-content" style="margin: inherit;">
+         <iframe width="727" height="409" src="https://www.youtube.com/embed/iRZ2Sh5-XuM" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+       </div>
+       <div class="tour-youtube-video-links" style="margin: inherit;">
+         <p>
+           <a>Download the geting started guide</a> or <a>watch the tutorial in a new window</a>
+         </p>
+       </div>
+     </div>
+    `
+
+    return html
+  }
+
+  ## mcdaniel jul-2019
+  ## default entry point. this executes as a diffy.
+  $( document ).ready(
+  function startRoverTour(repeat){
+
+    ##  mcdaniel jul-2019
+    ##  only launch the tour if the user is both authenticated and has been
+    ##  granted course creator privileges
+    console.info("startRoverTour called");
+    sessionStorage.setItem("hopscotch.tour.state", "");
+    sessionStorage.setItem("hopscotch.tour.again", ( repeat? true : false ));
+
+    if(window.location=="${am_home}"){
+      setTimeout(hopscotch.startTour( cms_itinerary(), 0 ), 250);
+    }else{
+      ## mcdaniel jul-2019
+      ## I AM NEFARIOUS!!!!!
+      ## why do i exist???????
+      ##
+      ##sessionStorage.setItem("hopscotch.tour.state", "cms-itinerary:0");
+      ##window.location="${am_home}";
+      ##
+    }
+  }
+  );
+
+  ## mcdaniel
+  window.rover_mktg_url = "${sfdc_data_url}";
+  console.info( "window.rover_mktg_url", window.rover_mktg_url);
+
+  $.ajax({
+    url: window.rover_mktg_url,
+    type: "GET",
+    global: false
+  })
+  .done(function(data){
+    console.info("Retrieved SFDC contact record");
+    marketingCheck(data);
+  })
+  .fail( function(err){
+    console.info("Retrieved SFDC contact record", err );
+  });
+
+
+  function marketingCheck( data ){
+    let rightNow = new Date();
+    rightNow = rightNow.getTime();
+    console.info("rightNow",rightNow);
+
+    if( rightNow - sessionStorage.getItem("marketingChecked") < 3600000 ){
+      console.info("marketing already checked this session");
+      return;
+    }else{
+      sessionStorage.setItem("marketingChecked", rightNow );
+    }
+
+    console.info( data );
+
+    let touredOn = new Date(data.completed_training_wheels_date);
+    touredOn = touredOn.getTime();
+    console.info("touredOn",touredOn);
+
+    let askedOn = new Date(data.soft_ask_decision_date);
+    askedOn = askedOn.getTime();
+    console.info("askedOn",askedOn);
+
+    let daysSinceTour = (rightNow - touredOn) / 259200000;
+    console.info("daysSinceTour",daysSinceTour);
+
+    if( !touredOn ){
+      console.info("startRoverTour");
+      startRoverTour(false);
+      console.log('finished tour');
+    }else if( !askedOn && daysSinceTour>=3 ){
+      console.info("askAboutAdoption");
+      sessionStorage.setItem("hopscotch.tour.state", "");
+      askAboutAdoption();
+    }
+  }
+
+  function askAboutAdoption(){
+    document.querySelector('.adoption_modal').style.display='flex';
+    document.querySelector('.adoption_modal_bkgd').style.display='flex';
+    document.querySelector('.adoption_count_modal').style.display='none';
+  }
+
+  function recordAdoption( el ){
+    let choice = el.innerText;
+    console.info( choice );
+
+    let rightNow = new Date()
+    $.ajax({
+      url: window.rover_mktg_url,
+      type: "PUT",
+      global: false,
+      data: {
+        "soft_ask_decision_date": rightNow.toISOString(),
+        "soft_ask_decision" : choice
+      }
+    })
+    .done(function(data){
+      console.info("Recorded Adoption Response")
+    })
+    .fail( function(err){
+      console.info("Recording Adoption Response FAILED", err );
+    });
+
+    switch( choice ){
+      case "Yes":
+        askAdoptionCount();
+        break;
+      case "I am considering it":
+        askAdoptionCount();
+        break;
+      default:
+        closeAdoption();
+    }
+  }
+
+  function recordAdoptionCount(){
+    let count = document.querySelector('#student_count').value;
+    console.info( count );
+    $.ajax({
+      url: window.rover_mktg_url,
+      type: "PUT",
+      global: false,
+      data: {
+        "estimated_enrollment" : count
+      }
+    })
+    .done(function(data){
+      console.info("Recorded Adoption Count")
+    })
+    .fail( function(err){
+      console.info("Recording Adoption Count FAILED", err );
+    });
+    closeAdoption();
+  }
+
+  function closeAdoption(){
+    document.querySelector('.adoption_count_modal').style.display='none';
+    document.querySelector('.adoption_modal_bkgd').style.display='none';
+  }
+
+  function askAdoptionCount(){
+    document.querySelector('.adoption_modal').style.display='none';
+    document.querySelector('.adoption_count_modal').style.display='flex';
+  }
+
+  if( !sessionStorage.getItem("tryingRover") ){
+    document.getElementById('try_rover_hdr').style.display='block'
+  }
+
+</script>
+
+
+
+<div class="adoption_modal_bkgd" style="display:none;">
+  <div class="adoption_modal">
+    <h2>Will you use Rover by OpenStax this fall?</h2>
+    <button onclick="recordAdoption(this);">Yes</button>
+    <button onclick="recordAdoption(this);">I am considering it</button>
+    <button onclick="recordAdoption(this);">I need more information</button>
+    <button onclick="recordAdoption(this);">I do not know</button>
+    <button onclick="recordAdoption(this);">No</button>
+  </div>
+  <div class="adoption_count_modal" style="display: none;">
+    <div class="adoption_students">
+      <h2>What is the estimated student enrollment of your class?</h2>
+      <input type="number" name="student_count" id="student_count" value=30>
+    </div>
+    <div class="adoption_controls">
+      <button class="submit" onclick="recordAdoptionCount();">Submit</button>
+    </div>
+  </div>
+</div>
+
+% endif
